@@ -1,0 +1,60 @@
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS Finder/Spotlight-related files
+._*
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+.Icon?
+
+# Windows files
+Thumbs.db
+Desktop.ini
+
+# Windows folder specific
+$RECYCLE.BIN/
+
+# Ignore Python-related files
+*.py[cod]
+__pycache__/
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyc
+
+# Ignore virtual environment directories
+venv/
+.env/
+ENV/
+
+# Ignore PyCharm project files
+.idea/
+*.iml
+
+# Ignore Jupyter notebook checkpoints (if applicable)
+.ipynb_checkpoints/
+
+# Ignore log files
+*.log
+
+# Ignore coverage reports
+htmlcov/
+.coverage
+*.cover
+*.py,cover
+.cache
+
+# Ignore mypy files
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ignore pytest files
+.pytest_cache/
+
+gatigos/
