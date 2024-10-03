@@ -1,8 +1,14 @@
 import os
 import numpy as np
 import xml.etree.ElementTree as etree
+
+import skimage
 from skimage.io import imread
 from skimage.transform import resize
+import matplotlib.pyplot as plt
+from skimage.feature import hog
+
+
 
 # https://www.kaggle.com/datasets/andrewmvd/dog-and-cat-detection/code
 
@@ -78,16 +84,44 @@ def obtenirHoG(imatges):
 
     # TODO: POSA EL TEU CODI
 
-    return
 
+    return
+def mostrar_imagen(imagen):
+    """Muestra una imagen usando matplotlib
+    :param imagen: numpy array que contiene la imagen a mostrar
+    :param titulo: string con el título de la imagen
+    """
+    plt.imshow(imagen, cmap='gray')
+    plt.axis('off')
+    plt.show()
 def main():
     carpeta_images = "gatigos/images"  # NO ES POT MODIFICAR
     carpeta_anotacions = "gatigos/annotations"  # NO ES POT MODIFICAR
-    mida = (1, 1)  # DEFINEIX LA MIDA, ES RECOMANA COMENÇAR AMB 64x64
+    mida = (64, 64)  # DEFINEIX LA MIDA, ES RECOMANA COMENÇAR AMB 64x64
     imatges, etiquetes = obtenir_dades(carpeta_images, carpeta_anotacions, mida)
 
-    # caracteristiques = obtenirHoG(imatges)
 
+    fd, hog_image = hog(
+        imatges[:, :, 0],
+        orientations=8,
+        pixels_per_cell=(3, 3),
+        cells_per_block=(4, 4),
+        visualize=True
+
+    )
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
+
+    ax1.axis('off')
+    ax1.imshow(imatges[:, :, 0], cmap=plt.cm.gray)
+    ax1.set_title('Input image')
+
+
+    ax2.axis('off')
+    ax2.imshow(hog_image, cmap=plt.cm.gray)
+    ax2.set_title('Histogram of Oriented Gradients')
+    plt.show()
+    print(f"{fd}")
+    #caracteristiques = obtenirHoG(imatges)
 
 if __name__ == "__main__":
 
