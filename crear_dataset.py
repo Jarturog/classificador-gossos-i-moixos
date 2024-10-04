@@ -7,6 +7,11 @@ from skimage.io import imread
 from skimage.transform import resize
 import matplotlib.pyplot as plt
 from skimage.feature import hog
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+from scipy.spatial import distance_matrix
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 
 
 
@@ -81,25 +86,72 @@ def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(64, 64)):
 
 
 def obtenirHoG(imatges):
+    caracteristiques = []
+    for i in range(imatges.shape[2]):
+        imatge = imatges[:, :, i]  # Obtenim la imatge en escala de grisos
 
-    # TODO: POSA EL TEU CODI
+        # Calcular HOG
+        fd = hog(
+            imatge,
+            orientations=8,
+            pixels_per_cell=(8, 8),
+            cells_per_block=(2, 2),
+            visualize=False,
+            feature_vector=True
+        )
+        caracteristiques.append(fd)
 
+    return np.array(caracteristiques)
 
-    return
-def mostrar_imagen(imagen):
-    """Muestra una imagen usando matplotlib
-    :param imagen: numpy array que contiene la imagen a mostrar
-    :param titulo: string con el título de la imagen
-    """
-    plt.imshow(imagen, cmap='gray')
-    plt.axis('off')
-    plt.show()
 def main():
     carpeta_images = "gatigos/images"  # NO ES POT MODIFICAR
     carpeta_anotacions = "gatigos/annotations"  # NO ES POT MODIFICAR
     mida = (64, 64)  # DEFINEIX LA MIDA, ES RECOMANA COMENÇAR AMB 64x64
     imatges, etiquetes = obtenir_dades(carpeta_images, carpeta_anotacions, mida)
 
+    caracteristiques = obtenirHoG(imatges)
+    X_train, X_test, y_train, y_test = train_test_split(caracteristiques, etiquetes, test_size=0.2, random_state=42)
+    scaler = MinMaxScaler()
+    X_train_transformed = scaler.fit_transform(X_train)
+    X_test_transformed = scaler.transform(X_test)
+    gamma = 1.0 / (X_train_transformed.shape[1] * X_train_transformed.var())
+
+
+    def kernel_lineal(x1, x2):
+        return x1.dot(x2.T)
+
+    def kernel_gauss(x1, x2):
+        return np.exp(-gamma * distance_matrix(x1, x2) ** 2)
+
+    def kernel_poly(x1, x2, degrees=3):
+        return (gamma * kernel_lineal(x1, x2)) ** degrees
+
+    kernels = {'linear': kernel_lineal, 'rbf': kernel_gauss, 'poly': kernel_poly}
+
+    for kernel in kernels:
+        print(f"\nProbando kernel: {kernel}")
+
+        svm = SVC(C=1.0, kernel=kernels[kernel])
+        svm.fit(X_train_transformed, y_train)
+
+        y_predict = svm.predict(X_test_transformed)
+
+        accuracy = accuracy_score(y_test, y_predict)
+        precision = precision_score(y_test, y_predict)
+        recall = recall_score(y_test, y_predict)
+        f1 = f1_score(y_test, y_predict)
+        cm = confusion_matrix(y_test, y_predict)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Cat", "Dog"])
+        disp.plot(cmap=plt.cm.Blues)
+        plt.show()
+
+        print(f"Accuracy: {accuracy:.4f}\n")
+        print(f"Precision: {precision:.4f}\n")
+        print(f"Recall: {recall:.4f}\n")
+        print(f"F1-Score: {f1:.4f}\n")
+
+'''
+CODI PER PROBAR DIFERENTS CONFIGURACIONS DE HOG
 
     fd, hog_image = hog(
         imatges[:, :, 0],
@@ -109,8 +161,8 @@ def main():
         visualize=True
 
     )
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
 
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
     ax1.axis('off')
     ax1.imshow(imatges[:, :, 0], cmap=plt.cm.gray)
     ax1.set_title('Input image')
@@ -120,8 +172,9 @@ def main():
     ax2.imshow(hog_image, cmap=plt.cm.gray)
     ax2.set_title('Histogram of Oriented Gradients')
     plt.show()
-    print(f"{fd}")
-    #caracteristiques = obtenirHoG(imatges)
+    print(f"Caracteristiques HoG de la primera imatge: {caracteristiques[0]}")
+'''
+
 
 if __name__ == "__main__":
 
