@@ -58,3 +58,4 @@ dmypy.json
 .pytest_cache/
 
 gatigos/
+*.npy

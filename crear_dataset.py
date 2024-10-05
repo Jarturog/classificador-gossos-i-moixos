@@ -7,13 +7,13 @@ from skimage.io import imread
 from skimage.transform import resize
 import matplotlib.pyplot as plt
 from skimage.feature import hog
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial import distance_matrix
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 
-
+RANDOM_STATE = 42
 
 # https://www.kaggle.com/datasets/andrewmvd/dog-and-cat-detection/code
 
@@ -85,17 +85,18 @@ def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(64, 64)):
     return imatges, etiquetes
 
 
-def obtenirHoG(imatges):
+def obtenir_hog(imatges):
     caracteristiques = []
     for i in range(imatges.shape[2]):
         imatge = imatges[:, :, i]  # Obtenim la imatge en escala de grisos
 
+        # TODO: debatir parámetros de hog, opino que 9 orientaciones es mejor que 8 y me gustaría preguntar por qué 2x2 y no 3x3
         # Calcular HOG
         fd = hog(
             imatge,
-            orientations=8,
+            orientations=8, # 9
             pixels_per_cell=(8, 8),
-            cells_per_block=(2, 2),
+            cells_per_block=(2, 2), # (3, 3)
             visualize=False,
             feature_vector=True
         )
@@ -103,14 +104,53 @@ def obtenirHoG(imatges):
 
     return np.array(caracteristiques)
 
-def main():
-    carpeta_images = "gatigos/images"  # NO ES POT MODIFICAR
-    carpeta_anotacions = "gatigos/annotations"  # NO ES POT MODIFICAR
-    mida = (64, 64)  # DEFINEIX LA MIDA, ES RECOMANA COMENÇAR AMB 64x64
-    imatges, etiquetes = obtenir_dades(carpeta_images, carpeta_anotacions, mida)
 
-    caracteristiques = obtenirHoG(imatges)
-    X_train, X_test, y_train, y_test = train_test_split(caracteristiques, etiquetes, test_size=0.2, random_state=42)
+def mostrar_imatge(is_dog, imatge):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
+
+    ax1.axis('off')
+    ax1.imshow(imatge, cmap='gray')
+    ax1.set_title('Imatge original del ' + ('ca' if is_dog else 'moix'))
+
+    # Calcular HOG amb visualize=True
+    _, hog_image = hog(
+        imatge,
+        orientations=8,  # 9
+        pixels_per_cell=(8, 8),
+        cells_per_block=(2, 2),  # (3, 3)
+        visualize=True,  # Include visualization
+        feature_vector=True
+    )
+
+    ax2.axis('off')
+    ax2.imshow(hog_image, cmap='gray')
+    ax2.set_title('Histogram of Oriented Gradients')
+
+    plt.show()
+# TODO: pq solo trabajamos con grises y no con todos los canales de color?
+def main():
+    imatges_path, etiquetes_path = "imatges.npy", "etiquetes.npy"
+
+    if os.path.exists(imatges_path) and os.path.exists(etiquetes_path):
+        imatges, etiquetes = np.load(imatges_path), np.load(etiquetes_path)
+    else:
+        carpeta_images = "gatigos/images"  # NO ES POT MODIFICAR
+        carpeta_anotacions = "gatigos/annotations"  # NO ES POT MODIFICAR
+        mida = (64, 64)  # DEFINEIX LA MIDA, ES RECOMANA COMENÇAR AMB 64x64
+        imatges, etiquetes = obtenir_dades(carpeta_images, carpeta_anotacions, mida)
+        np.save(imatges_path, imatges)
+        np.save(etiquetes_path, etiquetes)
+
+    n_imatges = len(etiquetes)
+    n_dogs = np.sum(etiquetes)
+    n_cats = n_imatges - n_dogs
+    print(f"El dataset té {n_imatges} imatges, de les quals {n_dogs} són gossos i {n_cats} són moixos. Hi ha {(n_dogs / n_cats):.2f} gossos per cada moix.")
+
+    # mostrar imagen de la primera cara
+    mostrar_imatge(etiquetes[0] == 1, imatges[:, :, 0])
+    caracteristiques = obtenir_hog(imatges)
+
+    X_train, X_test, y_train, y_test = train_test_split(caracteristiques, etiquetes, test_size=0.2, random_state=RANDOM_STATE)
     scaler = MinMaxScaler()
     X_train_transformed = scaler.fit_transform(X_train)
     X_test_transformed = scaler.transform(X_test)
@@ -121,18 +161,38 @@ def main():
         return x1.dot(x2.T)
 
     def kernel_gauss(x1, x2):
-        return np.exp(-gamma * distance_matrix(x1, x2) ** 2)
+        return np.exp(-gamma * (distance_matrix(x1, x2) ** 2))
 
     def kernel_poly(x1, x2, degrees=3):
-        return (gamma * kernel_lineal(x1, x2)) ** degrees
+        return (gamma * x1.dot(x2.T)) ** degrees
 
-    kernels = {'linear': kernel_lineal, 'rbf': kernel_gauss, 'poly': kernel_poly}
+    # TODO: preguntar si se puede usar los kernels ya implementados en SVC
+    #kernels = {'lineal': kernel_lineal, 'gaussiano': kernel_gauss, 'polinómico': kernel_poly}
+    kernels = {
+        'lineal': ('linear', {}),
+        'gaussiano': ('rbf', {'gamma': ['scale', 'auto', 0.1, 1, 10]}),
+        'polinómico': ('poly', {'degree': [2, 3, 4], 'coef0': [0.0, 0.1, 1.0]})
+    }
 
-    for kernel in kernels:
-        print(f"\nProbando kernel: {kernel}")
+    for kernelNom, (kernel, parametros) in kernels.items():
+        print(f"\nProbando kernel: {kernelNom}")
 
-        svm = SVC(C=1.0, kernel=kernels[kernel])
-        svm.fit(X_train_transformed, y_train)
+        svm = SVC(kernel=kernel, random_state=RANDOM_STATE)
+        # apply k fold and grid search
+        parametros['C'] = [0.01, 0.1, 1, 10, 100, 1000] # para todos los kernels
+
+        # Inicialización de GridSearchCV
+        # TODO: contar a marta que he elegido f1 weighted porque hay un desbalance de clases y para no priorizar una sobre la otra
+        scoring = 'f1_weighted' # f1 # https://scikit-learn.org/stable/modules/model_evaluation.html#from-binary-to-multiclass-and-multilabel
+        grid_search = GridSearchCV(svm, parametros, cv=5, scoring=scoring, n_jobs=-1)
+
+        # Ajuste del modelo
+        grid_search.fit(X_train_transformed, y_train)
+
+        # Mejores parámetros
+        print(f"Mejores parámetros: {grid_search.best_params_}")
+
+        svm = grid_search.best_estimator_
 
         y_predict = svm.predict(X_test_transformed)
 
@@ -142,7 +202,7 @@ def main():
         f1 = f1_score(y_test, y_predict)
         cm = confusion_matrix(y_test, y_predict)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Cat", "Dog"])
-        disp.plot(cmap=plt.cm.Blues)
+        disp.plot(cmap='Blues')
         plt.show()
 
         print(f"Accuracy: {accuracy:.4f}\n")
@@ -150,41 +210,6 @@ def main():
         print(f"Recall: {recall:.4f}\n")
         print(f"F1-Score: {f1:.4f}\n")
 
-'''
-CODI PER PROBAR DIFERENTS CONFIGURACIONS DE HOG
-
-    fd, hog_image = hog(
-        imatges[:, :, 0],
-        orientations=8,
-        pixels_per_cell=(3, 3),
-        cells_per_block=(4, 4),
-        visualize=True
-
-    )
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
-    ax1.axis('off')
-    ax1.imshow(imatges[:, :, 0], cmap=plt.cm.gray)
-    ax1.set_title('Input image')
-
-
-    ax2.axis('off')
-    ax2.imshow(hog_image, cmap=plt.cm.gray)
-    ax2.set_title('Histogram of Oriented Gradients')
-    plt.show()
-    print(f"Caracteristiques HoG de la primera imatge: {caracteristiques[0]}")
-'''
-
-
 if __name__ == "__main__":
 
     main()
-
-
-
-
-
-
-
-
-
