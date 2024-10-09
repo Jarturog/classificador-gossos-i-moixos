@@ -90,7 +90,7 @@ def obtenir_hog(imatges):
     for i in range(imatges.shape[2]):
         imatge = imatges[:, :, i]  # Obtenim la imatge en escala de grisos
 
-        # TODO: debatir parámetros de hog, opino que 9 orientaciones es mejor que 8 y me gustaría preguntar por qué 2x2 y no 3x3
+        # TODO ARTURO: entender pq funciona mejor (2, 2) y 8
         # Calcular HOG
         fd = hog(
             imatge,
@@ -115,9 +115,9 @@ def mostrar_imatge(is_dog, imatge):
     # Calcular HOG amb visualize=True
     _, hog_image = hog(
         imatge,
-        orientations=8,  # 9
+        orientations=8,
         pixels_per_cell=(8, 8),
-        cells_per_block=(2, 2),  # (3, 3)
+        cells_per_block=(2, 2),
         visualize=True,  # Include visualization
         feature_vector=True
     )
@@ -127,7 +127,7 @@ def mostrar_imatge(is_dog, imatge):
     ax2.set_title('Histogram of Oriented Gradients')
 
     plt.show()
-# TODO: pq solo trabajamos con grises y no con todos los canales de color?
+# TODO PROFE: pq solo trabajamos con grises y no con todos los canales de color?
 def main():
     imatges_path, etiquetes_path = "imatges.npy", "etiquetes.npy"
 
@@ -166,7 +166,7 @@ def main():
     def kernel_poly(x1, x2, degrees=3):
         return (gamma * x1.dot(x2.T)) ** degrees
 
-    # TODO: preguntar si se puede usar los kernels ya implementados en SVC
+    # TODO PROFE: preguntar si se puede usar los kernels ya implementados en SVC
     #kernels = {'lineal': kernel_lineal, 'gaussiano': kernel_gauss, 'polinómico': kernel_poly}
     kernels = {
         'lineal': ('linear', {}),
@@ -177,13 +177,15 @@ def main():
     for kernelNom, (kernel, parametros) in kernels.items():
         print(f"\nProbando kernel: {kernelNom}")
 
-        svm = SVC(kernel=kernel, random_state=RANDOM_STATE)
+        svm = SVC(kernel=kernel, random_state=RANDOM_STATE) #TODO , class_weight=)
         # apply k fold and grid search
         parametros['C'] = [0.01, 0.1, 1, 10, 100, 1000] # para todos los kernels
+        parametros['max_iter'] = range(100, 10000, 100)  # para todos los kernels
 
         # Inicialización de GridSearchCV
-        # TODO: contar a marta que he elegido f1 weighted porque hay un desbalance de clases y para no priorizar una sobre la otra
-        scoring = 'f1_weighted' # f1 # https://scikit-learn.org/stable/modules/model_evaluation.html#from-binary-to-multiclass-and-multilabel
+        # f1_weighted elegida sobre f1 porque considera el desbalance entre perros y gatos
+        # https://scikit-learn.org/stable/modules/model_evaluation.html#from-binary-to-multiclass-and-multilabel
+        scoring = 'f1_weighted'
         grid_search = GridSearchCV(svm, parametros, cv=5, scoring=scoring, n_jobs=-1)
 
         # Ajuste del modelo
@@ -210,6 +212,6 @@ def main():
         print(f"Recall: {recall:.4f}\n")
         print(f"F1-Score: {f1:.4f}\n")
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     main()
