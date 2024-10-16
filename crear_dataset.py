@@ -127,7 +127,7 @@ def mostrar_imatge (imatge):
     ax2.set_title('Histogram of Oriented Gradients')
 
     plt.show()
-# TODO PROFE: pq solo trabajamos con grises y no con todos los canales de color?
+
 def main():
     imatges_path, etiquetes_path = "imatges.npy", "etiquetes.npy"
 
@@ -168,8 +168,6 @@ def main():
     def kernel_poly(x1, x2, degrees=3):
         return (gamma * x1.dot(x2.T)) ** degrees
 
-    # TODO PROFE: preguntar si se puede usar los kernels ya implementados en SVC
-    #kernels = {'lineal': kernel_lineal, 'gaussiano': kernel_gauss, 'polinómico': kernel_poly}
     kernels = {
         'lineal': ('linear', {}),
         'gaussiano': ('rbf', {'gamma': ['scale', 'auto', 0.1, 1, 10]}),
@@ -180,6 +178,7 @@ def main():
         print(f"\nProbando kernel: {kernelNom}")
 
         svm = SVC(kernel=kernel, random_state=RANDOM_STATE) #TODO , class_weight=)
+
         # apply k fold and grid search
         parametros['C'] = [0.01, 0.1, 1, 10, 100, 1000] # para todos los kernels
         parametros['max_iter'] = range(100, 10000, 100)  # para todos los kernels
