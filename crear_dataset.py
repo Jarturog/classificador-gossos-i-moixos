@@ -94,24 +94,24 @@ def obtenir_hog(imatges):
         # Calcular HOG
         fd = hog(
             imatge,
-            orientations=8, # 9
+            orientations= 8, # 9
             pixels_per_cell=(8, 8),
             cells_per_block=(2, 2), # (3, 3)
             visualize=False,
-            feature_vector=True
+            feature_vector=True,
+
         )
         caracteristiques.append(fd)
 
     return np.array(caracteristiques)
 
 
-def mostrar_imatge(is_dog, imatge):
+def mostrar_imatge (imatge):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
 
     ax1.axis('off')
-    ax1.imshow(imatge, cmap='gray')
-    ax1.set_title('Imatge original del ' + ('ca' if is_dog else 'moix'))
-
+    ax1.imshow(imatge)
+    ax1.set_title('Dataset')
     # Calcular HOG amb visualize=True
     _, hog_image = hog(
         imatge,
@@ -119,7 +119,7 @@ def mostrar_imatge(is_dog, imatge):
         pixels_per_cell=(8, 8),
         cells_per_block=(2, 2),
         visualize=True,  # Include visualization
-        feature_vector=True
+        feature_vector=True,
     )
 
     ax2.axis('off')
@@ -147,7 +147,9 @@ def main():
     print(f"El dataset té {n_imatges} imatges, de les quals {n_dogs} són gossos i {n_cats} són moixos. Hi ha {(n_dogs / n_cats):.2f} gossos per cada moix.")
 
     # mostrar imagen de la primera cara
-    mostrar_imatge(etiquetes[0] == 1, imatges[:, :, 0])
+    for i in range(n_imatges):
+        mostrar_imatge(imatges[:, :, i])
+
     caracteristiques = obtenir_hog(imatges)
 
     X_train, X_test, y_train, y_test = train_test_split(caracteristiques, etiquetes, test_size=0.2, random_state=RANDOM_STATE)
