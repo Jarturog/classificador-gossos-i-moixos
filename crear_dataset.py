@@ -182,17 +182,16 @@ def main():
     for kernelNom, (kernel, parametros) in kernels.items():
         print(f"\nProbando kernel: {kernelNom}")
 
-        svm = SVC(kernel=kernel, random_state=RANDOM_STATE) #TODO , class_weight=)
+        svm = SVC(kernel=kernel, max_iter=-1, random_state=RANDOM_STATE, class_weight='balanced')
+        # TODO: probar sin class weight, sin f1_wighted y con f1, sin ambos y con ambos a la vez para determinar el que va mejor
 
         # apply k fold and grid search
         parametros['C'] = [0.01, 0.1, 1, 10, 100, 1000] # para todos los kernels
-        parametros['max_iter'] = [-1]  # para todos los kernels
 
         # Inicialización de GridSearchCV
         # f1_weighted elegida sobre f1 porque considera el desbalance entre perros y gatos
         # https://scikit-learn.org/stable/modules/model_evaluation.html#from-binary-to-multiclass-and-multilabel
-        scoring = 'f1_weighted'
-        grid_search = GridSearchCV(svm, parametros, cv=5, scoring=scoring, n_jobs=-1)
+        grid_search = GridSearchCV(svm, parametros, cv=5, scoring='f1_weighted', n_jobs=-1)
 
         # Ajuste del modelo
         grid_search.fit(X_train_transformed, y_train)
