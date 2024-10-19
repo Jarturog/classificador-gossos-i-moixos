@@ -15,7 +15,7 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 
 RANDOM_STATE = 42
-GRIS = False
+GRIS = True
 N_CANALES_IMAGENES = 1 if GRIS else 3
 
 # https://www.kaggle.com/datasets/andrewmvd/dog-and-cat-detection/code
@@ -66,10 +66,7 @@ def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(64, 64)):
 
     n_elements = len([entry for entry in os.listdir(carpeta_imatges) if os.path.isfile(os.path.join(carpeta_imatges, entry))])
     # Una matriu 3D: mida x mida x nombre d'imatges
-    if GRIS:
-        imatges = np.zeros((mida[0], mida[1], n_elements), dtype=np.float16)
-    else:
-        imatges = np.zeros((mida[0], mida[1], N_CANALES_IMAGENES, n_elements), dtype=np.float16)
+    imatges = np.zeros((mida[0], mida[1], N_CANALES_IMAGENES, n_elements), dtype=np.float16)
     # Una llista d'etiquetes
     etiquetes = [0] * n_elements
 
@@ -82,49 +79,45 @@ def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(64, 64)):
             imatge = imread(carpeta_imatges + os.sep + element.name, as_gray=GRIS)
             anotacions = extract_xml_annotation(carpeta_anotacions + os.sep + nom_fitxer)
 
+            if GRIS:
+                imatge = imatge[:, :, np.newaxis]
+
             if not GRIS and len(imatge.shape) == 2:  # Grayscale image
                 imatge = gray2rgb(imatge)
 
             cara_animal = retall_normalitzat(imatge, anotacions, mida)
             tipus_animal = anotacions["informacio"][0]
 
-            if GRIS:
-                imatges[:, :, idx] = cara_animal
-            else:
-                imatges[:, :, :, idx] = cara_animal[:, :, :N_CANALES_IMAGENES]
+            imatges[:, :, :, idx] = cara_animal[:, :, :N_CANALES_IMAGENES] # por si hay algún canal extra como el de transparencia
             etiquetes[idx] = 0 if tipus_animal == "cat" else 1
 
     return imatges, etiquetes
 
 
 def obtenir_hog_individual(imatge, visualizar=False):
-    fd_channels = []
+    fd = []
     for i in range(N_CANALES_IMAGENES):
-        imatge_channel = imatge[:, :, i]
-        fd = hog(
-            imatge_channel,
+        fd_channel = hog(
+            imatge[:, :, i],
             orientations=8,
             pixels_per_cell=(8, 8),
             cells_per_block=(2, 2),
             visualize=visualizar,
             feature_vector=True
         )
-        fd_channels.append(fd)
+        fd.append(fd_channel)
 
-    return fd_channels
+    return fd
 
 def obtenir_hog(imatges, visualizar=False):
     caracteristiques = []
-    shape_index = 2 if GRIS else 3
-    for i in range(imatges.shape[shape_index]):
-        if GRIS:
-            imatge = imatges[:, :, i]
-        else:
-            imatge = imatges[:, :, :, i]
-        fd_channels = obtenir_hog_individual(imatge, visualizar)
+
+    for i in range(imatges.shape[3]):
+        imatge = imatges[:, :, :, i]
+        fd = obtenir_hog_individual(imatge, visualizar)
 
         # Concatenar características de los 3 canales
-        caracteristiques += fd_channels
+        caracteristiques += fd
 
     return np.array(caracteristiques)
 
@@ -132,30 +125,25 @@ def obtenir_hog(imatges, visualizar=False):
 def mostrar_imatge (imatge):
     if GRIS:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
+        ejes = [ax2]
     else:
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(8, 4), sharex=True, sharey=True)
-        axes = [ax2, ax3, ax4]
+        ejes = [ax2, ax3, ax4]
 
-    imatge = imatge.astype(np.float32)
+    imatge = imatge.astype(np.float32) # al intentar mostrar la imagen, si es float16 y el resto float32, da error
 
     ax1.axis('off')
-    ax1.imshow(imatge)
+    ax1.imshow(imatge, cmap='gray' if GRIS else None)
     ax1.set_title('Dataset')
     # Calcular HOG amb visualize=True
 
     hog = obtenir_hog_individual(imatge, visualizar=True)
 
-    if GRIS:
-        _, hog_image = hog
-        ax2.axis('off')
-        ax2.imshow(hog_image)
-        ax2.set_title('Histogram of Oriented Gradients')
-    else:
-        for i in range(N_CANALES_IMAGENES):
-            _, hog_image = hog[i]
-            axes[i].axis('off')
-            axes[i].imshow(hog_image)
-            axes[i].set_title('Histogram of Oriented Gradients')
+    for i in range(N_CANALES_IMAGENES):
+        _, hog_image = hog[i]
+        ejes[i].axis('off')
+        ejes[i].imshow(hog_image, cmap='gray' if GRIS else None)
+        ejes[i].set_title('Histogram of Oriented Gradients')
 
     plt.show()
 
@@ -179,10 +167,7 @@ def main():
 
     # mostrar imagen de la primera cara
     for i in range(n_imatges):
-        if GRIS:
-            mostrar_imatge(imatges[:, :, i])
-        else:
-            mostrar_imatge(imatges[:, :, :, i])
+        mostrar_imatge(imatges[:, :, :, i])
 
     caracteristiques = obtenir_hog(imatges)
 
@@ -204,7 +189,7 @@ def main():
 
         # apply k fold and grid search
         parametros['C'] = [0.01, 0.1, 1, 10, 100, 1000] # para todos los kernels
-        parametros['max_iter'] = range(100, 10000, 100)  # para todos los kernels
+        parametros['max_iter'] = [-1]  # para todos los kernels
 
         # Inicialización de GridSearchCV
         # f1_weighted elegida sobre f1 porque considera el desbalance entre perros y gatos
