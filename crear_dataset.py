@@ -5,6 +5,7 @@ import xml.etree.ElementTree as etree
 import skimage
 from skimage.io import imread
 from skimage.transform import resize
+from skimage.color import gray2rgb
 import matplotlib.pyplot as plt
 from skimage.feature import hog
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -14,6 +15,8 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 
 RANDOM_STATE = 42
+GRIS = False
+N_CANALES_IMAGENES = 1 if GRIS else 3
 
 # https://www.kaggle.com/datasets/andrewmvd/dog-and-cat-detection/code
 
@@ -63,7 +66,10 @@ def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(64, 64)):
 
     n_elements = len([entry for entry in os.listdir(carpeta_imatges) if os.path.isfile(os.path.join(carpeta_imatges, entry))])
     # Una matriu 3D: mida x mida x nombre d'imatges
-    imatges = np.zeros((mida[0], mida[1], n_elements), dtype=np.float16)
+    if GRIS:
+        imatges = np.zeros((mida[0], mida[1], n_elements), dtype=np.float16)
+    else:
+        imatges = np.zeros((mida[0], mida[1], N_CANALES_IMAGENES, n_elements), dtype=np.float16)
     # Una llista d'etiquetes
     etiquetes = [0] * n_elements
 
@@ -73,58 +79,83 @@ def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(64, 64)):
         for idx, element in enumerate(elements):
             nom = element.name.split(".")
             nom_fitxer = nom[0] + ".xml"
-            imatge = imread(carpeta_imatges + os.sep + element.name, as_gray=True)
+            imatge = imread(carpeta_imatges + os.sep + element.name, as_gray=GRIS)
             anotacions = extract_xml_annotation(carpeta_anotacions + os.sep + nom_fitxer)
+
+            if not GRIS and len(imatge.shape) == 2:  # Grayscale image
+                imatge = gray2rgb(imatge)
 
             cara_animal = retall_normalitzat(imatge, anotacions, mida)
             tipus_animal = anotacions["informacio"][0]
 
-            imatges[:, :, idx] = cara_animal
+            if GRIS:
+                imatges[:, :, idx] = cara_animal
+            else:
+                imatges[:, :, :, idx] = cara_animal[:, :, :N_CANALES_IMAGENES]
             etiquetes[idx] = 0 if tipus_animal == "cat" else 1
 
     return imatges, etiquetes
 
 
-def obtenir_hog(imatges):
-    caracteristiques = []
-    for i in range(imatges.shape[2]):
-        imatge = imatges[:, :, i]  # Obtenim la imatge en escala de grisos
-
-        # TODO ARTURO: entender pq funciona mejor (2, 2) y 8
-        # Calcular HOG
+def obtenir_hog_individual(imatge, visualizar=False):
+    fd_channels = []
+    for i in range(N_CANALES_IMAGENES):
+        imatge_channel = imatge[:, :, i]
         fd = hog(
-            imatge,
-            orientations= 8, # 9
+            imatge_channel,
+            orientations=8,
             pixels_per_cell=(8, 8),
-            cells_per_block=(2, 2), # (3, 3)
-            visualize=False,
-            feature_vector=True,
-
+            cells_per_block=(2, 2),
+            visualize=visualizar,
+            feature_vector=True
         )
-        caracteristiques.append(fd)
+        fd_channels.append(fd)
+
+    return fd_channels
+
+def obtenir_hog(imatges, visualizar=False):
+    caracteristiques = []
+    shape_index = 2 if GRIS else 3
+    for i in range(imatges.shape[shape_index]):
+        if GRIS:
+            imatge = imatges[:, :, i]
+        else:
+            imatge = imatges[:, :, :, i]
+        fd_channels = obtenir_hog_individual(imatge, visualizar)
+
+        # Concatenar características de los 3 canales
+        caracteristiques += fd_channels
 
     return np.array(caracteristiques)
 
 
 def mostrar_imatge (imatge):
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
+    if GRIS:
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
+    else:
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(8, 4), sharex=True, sharey=True)
+        axes = [ax2, ax3, ax4]
+
+    imatge = imatge.astype(np.float32)
 
     ax1.axis('off')
     ax1.imshow(imatge)
     ax1.set_title('Dataset')
     # Calcular HOG amb visualize=True
-    _, hog_image = hog(
-        imatge,
-        orientations=8,
-        pixels_per_cell=(8, 8),
-        cells_per_block=(2, 2),
-        visualize=True,  # Include visualization
-        feature_vector=True,
-    )
 
-    ax2.axis('off')
-    ax2.imshow(hog_image, cmap='gray')
-    ax2.set_title('Histogram of Oriented Gradients')
+    hog = obtenir_hog_individual(imatge, visualizar=True)
+
+    if GRIS:
+        _, hog_image = hog
+        ax2.axis('off')
+        ax2.imshow(hog_image)
+        ax2.set_title('Histogram of Oriented Gradients')
+    else:
+        for i in range(N_CANALES_IMAGENES):
+            _, hog_image = hog[i]
+            axes[i].axis('off')
+            axes[i].imshow(hog_image)
+            axes[i].set_title('Histogram of Oriented Gradients')
 
     plt.show()
 
@@ -148,7 +179,10 @@ def main():
 
     # mostrar imagen de la primera cara
     for i in range(n_imatges):
-        mostrar_imatge(imatges[:, :, i])
+        if GRIS:
+            mostrar_imatge(imatges[:, :, i])
+        else:
+            mostrar_imatge(imatges[:, :, :, i])
 
     caracteristiques = obtenir_hog(imatges)
 
@@ -156,17 +190,6 @@ def main():
     scaler = MinMaxScaler()
     X_train_transformed = scaler.fit_transform(X_train)
     X_test_transformed = scaler.transform(X_test)
-    gamma = 1.0 / (X_train_transformed.shape[1] * X_train_transformed.var())
-
-
-    def kernel_lineal(x1, x2):
-        return x1.dot(x2.T)
-
-    def kernel_gauss(x1, x2):
-        return np.exp(-gamma * (distance_matrix(x1, x2) ** 2))
-
-    def kernel_poly(x1, x2, degrees=3):
-        return (gamma * x1.dot(x2.T)) ** degrees
 
     kernels = {
         'lineal': ('linear', {}),
