@@ -15,7 +15,7 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 
 RANDOM_STATE = 42
-GRIS = True
+GRIS = False
 N_CANALES_IMAGENES = 1 if GRIS else 3
 
 # https://www.kaggle.com/datasets/andrewmvd/dog-and-cat-detection/code
@@ -52,7 +52,6 @@ def retall_normalitzat(imatge, dades, mida_desti=(64,64)):
     x, y, ample, alt = dades['informacio'][1]
     retall = np.copy(imatge[y:alt, x:ample])
     return resize(retall, mida_desti)
-
 
 def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(64, 64)):
     """Genera la col·lecció de cares d'animals i les corresponents etiquetes
@@ -93,7 +92,6 @@ def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(64, 64)):
 
     return imatges, etiquetes
 
-
 def obtenir_hog_individual(imatge, visualizar=False):
     fd = []
     for i in range(N_CANALES_IMAGENES):
@@ -117,10 +115,9 @@ def obtenir_hog(imatges, visualizar=False):
         fd = obtenir_hog_individual(imatge, visualizar)
 
         # Concatenar características de los 3 canales
-        caracteristiques += fd
+        caracteristiques.append(np.concatenate(fd))
 
     return np.array(caracteristiques)
-
 
 def mostrar_imatge (imatge):
     if GRIS:
