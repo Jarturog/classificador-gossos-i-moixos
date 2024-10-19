@@ -15,7 +15,7 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 
 RANDOM_STATE = 42
-GRIS = False
+GRIS = True
 N_CANALES_IMAGENES = 1 if GRIS else 3
 
 # https://www.kaggle.com/datasets/andrewmvd/dog-and-cat-detection/code
@@ -163,7 +163,7 @@ def main():
     print(f"El dataset té {n_imatges} imatges, de les quals {n_dogs} són gossos i {n_cats} són moixos. Hi ha {(n_dogs / n_cats):.2f} gossos per cada moix.")
 
     # mostrar imagen de la primera cara
-    for i in range(n_imatges):
+    for i in range(10):
         mostrar_imatge(imatges[:, :, :, i])
 
     caracteristiques = obtenir_hog(imatges)
