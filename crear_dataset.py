@@ -3,6 +3,7 @@ import numpy as np
 import xml.etree.ElementTree as etree
 
 import skimage
+from matplotlib.pyplot import title
 from skimage.io import imread
 from skimage.transform import resize
 from skimage.color import gray2rgb
@@ -98,7 +99,7 @@ def obtenir_hog_individual(imatge, visualizar=False):
         fd_channel = hog(
             imatge[:, :, i],
             orientations=8,
-            pixels_per_cell=(8, 8),
+            pixels_per_cell=(16, 16),
             cells_per_block=(2, 2),
             visualize=visualizar,
             feature_vector=True
@@ -209,7 +210,9 @@ def main():
         f1 = f1_score(y_test, y_predict)
         cm = confusion_matrix(y_test, y_predict)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Cat", "Dog"])
+
         disp.plot(cmap='Blues')
+        plt.title(kernelNom)
         plt.show()
 
         print(f"Accuracy: {accuracy:.4f}\n")
