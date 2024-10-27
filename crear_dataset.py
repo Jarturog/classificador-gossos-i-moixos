@@ -2,8 +2,7 @@ import os
 import numpy as np
 import xml.etree.ElementTree as etree
 
-import skimage
-from matplotlib.pyplot import title
+
 from skimage.io import imread
 from skimage.transform import resize
 from skimage.color import gray2rgb
@@ -11,7 +10,7 @@ import matplotlib.pyplot as plt
 from skimage.feature import hog
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
-from scipy.spatial import distance_matrix
+
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 
@@ -231,8 +230,8 @@ def main():
 
             n_eq = 0
             for index in misclassified_indexes:
-                image = imatges[index].squeeze()
-                true_label = "Cat" if y_test[index] == 0 else "Dog"
+                image = imatges[:,:,:,index].squeeze()
+                true_label = "Cat" if y_test_imgs[index] == 0 else "Dog"
                 predicted_label = "Cat" if y_predict[index] == 0 else "Dog"
                 confidence = y_probs[index][y_predict[index]] * 100  # Probabilidad de la predicción
 
