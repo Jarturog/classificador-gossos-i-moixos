@@ -19,6 +19,7 @@ RANDOM_STATE = 42
 GRIS = True
 N_CANALES_IMAGENES = 1 if GRIS else 3
 MOSTRAR_EQUIVOCACIONES = True
+N_EQUIVOCACIONES = 10
 MIDA = 64
 
 # https://www.kaggle.com/datasets/andrewmvd/dog-and-cat-detection/code
@@ -201,8 +202,6 @@ def main():
         svm = grid_search.best_estimator_
 
         y_predict = svm.predict(X_test_transformed)
-        if MOSTRAR_EQUIVOCACIONES:
-            y_probs = svm.predict_proba(X_test_transformed)  # Probabilidades de predicción
 
         accuracy = accuracy_score(y_test, y_predict)
         precision = precision_score(y_test, y_predict)
@@ -222,21 +221,29 @@ def main():
 
         if MOSTRAR_EQUIVOCACIONES:
             # Mostrar imágenes mal clasificadas
-            misclassified_indexes = [i for i, (true, pred) in enumerate(zip(y_test, y_predict)) if true != pred]
-            print(f"Número de clasificaciones incorrectas: {len(misclassified_indexes)}")
+            _, X_test_imgs, _, y_test_imgs = train_test_split(obtenir_hog(imatges), etiquetes, test_size=0.99999,
+                                                                random_state=RANDOM_STATE)
+            X_test_imgs = scaler.transform(X_test_imgs)
 
+            y_predict = svm.predict(X_test_imgs)
+            y_probs = svm.predict_proba(X_test_imgs)  # Probabilidades de predicción
+
+            misclassified_indexes = [i for i, (true, pred) in enumerate(zip(y_test_imgs, y_predict)) if true != pred]
+
+            n_eq = 0
             for index in misclassified_indexes:
-                image = X_test_transformed[index].reshape(MIDA, MIDA)  # Ajusta a las dimensiones originales de la imagen si es necesario
+                image = X_test_imgs[:, :, :, index].squeeze()
                 true_label = "Cat" if y_test[index] == 0 else "Dog"
                 predicted_label = "Cat" if y_predict[index] == 0 else "Dog"
+                confidence = y_probs[index][y_predict[index]] * 100  # Probabilidad de la predicción
 
-                # Confianza de la predicción (porcentaje)
-                confidence = y_probs[index][y_predict[index]] * 100  # Obtiene la probabilidad de la clase predicha
-
-                plt.imshow(image)
+                plt.imshow(image, cmap='gray' if GRIS else None)
                 plt.title(f"True: {true_label}, Predicted: {predicted_label} ({confidence:.2f}% confidence)")
                 plt.axis('off')
                 plt.show()
+                n_eq += 1
+                if N_EQUIVOCACIONES == n_eq:
+                    break
 
 
 if __name__ == "__main__":
