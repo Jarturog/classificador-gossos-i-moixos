@@ -221,8 +221,7 @@ def main():
 
         if MOSTRAR_EQUIVOCACIONES:
             # Mostrar imágenes mal clasificadas
-            _, X_test_imgs, _, y_test_imgs = train_test_split(obtenir_hog(imatges), etiquetes, test_size=0.99999,
-                                                                random_state=RANDOM_STATE)
+            X_test_imgs, y_test_imgs = obtenir_hog(imatges), etiquetes
             X_test_imgs = scaler.transform(X_test_imgs)
 
             y_predict = svm.predict(X_test_imgs)
@@ -232,7 +231,7 @@ def main():
 
             n_eq = 0
             for index in misclassified_indexes:
-                image = X_test_imgs[:, :, :, index].squeeze()
+                image = imatges[index].squeeze()
                 true_label = "Cat" if y_test[index] == 0 else "Dog"
                 predicted_label = "Cat" if y_predict[index] == 0 else "Dog"
                 confidence = y_probs[index][y_predict[index]] * 100  # Probabilidad de la predicción
