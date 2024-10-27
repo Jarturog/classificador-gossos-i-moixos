@@ -1,8 +1,6 @@
 import os
 import numpy as np
 import xml.etree.ElementTree as etree
-
-
 from skimage.io import imread
 from skimage.transform import resize
 from skimage.color import gray2rgb
@@ -10,7 +8,6 @@ import matplotlib.pyplot as plt
 from skimage.feature import hog
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
-
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 
@@ -95,6 +92,7 @@ def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(MIDA, MIDA)):
 
     return imatges, etiquetes
 
+# Llama a HoG con la mejor configuración encontrada para una imagen
 def obtenir_hog_individual(imatge, visualizar=False):
     fd = []
     for i in range(N_CANALES_IMAGENES):
@@ -110,6 +108,7 @@ def obtenir_hog_individual(imatge, visualizar=False):
 
     return fd
 
+# Obtiene el HoG de un conjunto de imágenes
 def obtenir_hog(imatges, visualizar=False):
     caracteristiques = []
 
@@ -122,6 +121,7 @@ def obtenir_hog(imatges, visualizar=False):
 
     return np.array(caracteristiques)
 
+# Imprime por pantalla una imagen
 def mostrar_imatge (imatge):
     if GRIS:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
@@ -148,7 +148,6 @@ def mostrar_imatge (imatge):
     plt.show()
 
 def main():
-    global y_probs
     imatges_path, etiquetes_path = "imatges.npy", "etiquetes.npy"
 
     if os.path.exists(imatges_path) and os.path.exists(etiquetes_path):
@@ -173,6 +172,7 @@ def main():
     X_train_transformed = scaler.fit_transform(X_train)
     X_test_transformed = scaler.transform(X_test)
 
+    # parámetros para buscar el mejor
     kernels = {
         'lineal': ('linear', {}),
         'gaussiano': ('rbf', {'gamma': ['scale', 'auto', 0.1, 1, 10]}),
@@ -242,7 +242,6 @@ def main():
                 n_eq += 1
                 if N_EQUIVOCACIONES == n_eq:
                     break
-
 
 if __name__ == "__main__":
     main()
