@@ -99,8 +99,9 @@ def obtenir_hog_individual(imatge, visualizar=False):
         fd_channel = hog(
             imatge[:, :, i],
             orientations=8,
-            pixels_per_cell=(16, 16),
-            cells_per_block=(2, 2),
+            pixels_per_cell=(8, 8),
+            cells_per_block=(8, 8),
+            transform_sqrt=True,
             visualize=visualizar,
             feature_vector=True
         )
@@ -184,7 +185,6 @@ def main():
         print(f"\nProbando kernel: {kernelNom}")
 
         svm = SVC(kernel=kernel, max_iter=-1, random_state=RANDOM_STATE, class_weight='balanced')
-        # TODO: probar sin class weight, sin f1_wighted y con f1, sin ambos y con ambos a la vez para determinar el que va mejor
 
         # apply k fold and grid search
         parametros['C'] = [0.01, 0.1, 1, 10, 100, 1000] # para todos los kernels
