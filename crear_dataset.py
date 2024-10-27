@@ -18,6 +18,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 RANDOM_STATE = 42
 GRIS = True
 N_CANALES_IMAGENES = 1 if GRIS else 3
+MOSTRAR_EQUIVOCACIONES = True
+MIDA = 64
 
 # https://www.kaggle.com/datasets/andrewmvd/dog-and-cat-detection/code
 
@@ -43,7 +45,7 @@ def extract_xml_annotation(filename):
     return {'size': size, 'informacio': dds}
 
 # Selecciona la cara de l'animal i la transforma a la mida indicat al paràmetre mida_desti
-def retall_normalitzat(imatge, dades, mida_desti=(64,64)):
+def retall_normalitzat(imatge, dades, mida_desti=(MIDA,MIDA)):
     """
     Extreu la regió de la cara (ROI) i retorna una nova imatge de la mida_destí
     :param imatge: imatge que conté un animal
@@ -54,7 +56,7 @@ def retall_normalitzat(imatge, dades, mida_desti=(64,64)):
     retall = np.copy(imatge[y:alt, x:ample])
     return resize(retall, mida_desti)
 
-def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(64, 64)):
+def obtenir_dades(carpeta_imatges, carpeta_anotacions, mida=(MIDA, MIDA)):
     """Genera la col·lecció de cares d'animals i les corresponents etiquetes
     :param carpeta_imatges: string amb el path a la carpeta d'imatges
     :param carpeta_anotacions: string amb el path a la carpeta d'anotacions
@@ -146,6 +148,7 @@ def mostrar_imatge (imatge):
     plt.show()
 
 def main():
+    global y_probs
     imatges_path, etiquetes_path = "imatges.npy", "etiquetes.npy"
 
     if os.path.exists(imatges_path) and os.path.exists(etiquetes_path):
@@ -153,7 +156,7 @@ def main():
     else:
         carpeta_images = "gatigos/images"  # NO ES POT MODIFICAR
         carpeta_anotacions = "gatigos/annotations"  # NO ES POT MODIFICAR
-        mida = (64, 64)  # DEFINEIX LA MIDA, ES RECOMANA COMENÇAR AMB 64x64
+        mida = (MIDA, MIDA)  # DEFINEIX LA MIDA, ES RECOMANA COMENÇAR AMB 64x64
         imatges, etiquetes = obtenir_dades(carpeta_images, carpeta_anotacions, mida)
         np.save(imatges_path, imatges)
         np.save(etiquetes_path, etiquetes)
@@ -162,10 +165,6 @@ def main():
     n_dogs = np.sum(etiquetes)
     n_cats = n_imatges - n_dogs
     print(f"El dataset té {n_imatges} imatges, de les quals {n_dogs} són gossos i {n_cats} són moixos. Hi ha {(n_dogs / n_cats):.2f} gossos per cada moix.")
-
-    # mostrar imagen de la primera cara
-    for i in range(10):
-        mostrar_imatge(imatges[:, :, :, i])
 
     caracteristiques = obtenir_hog(imatges)
 
@@ -183,7 +182,7 @@ def main():
     for kernelNom, (kernel, parametros) in kernels.items():
         print(f"\nProbando kernel: {kernelNom}")
 
-        svm = SVC(kernel=kernel, max_iter=-1, random_state=RANDOM_STATE, class_weight='balanced')
+        svm = SVC(kernel=kernel, max_iter=-1, random_state=RANDOM_STATE, class_weight='balanced', probability=MOSTRAR_EQUIVOCACIONES)
 
         # apply k fold and grid search
         parametros['C'] = [0.01, 0.1, 1, 10, 100, 1000] # para todos los kernels
@@ -202,6 +201,8 @@ def main():
         svm = grid_search.best_estimator_
 
         y_predict = svm.predict(X_test_transformed)
+        if MOSTRAR_EQUIVOCACIONES:
+            y_probs = svm.predict_proba(X_test_transformed)  # Probabilidades de predicción
 
         accuracy = accuracy_score(y_test, y_predict)
         precision = precision_score(y_test, y_predict)
@@ -218,6 +219,24 @@ def main():
         print(f"Precision: {precision:.4f}\n")
         print(f"Recall: {recall:.4f}\n")
         print(f"F1-Score: {f1:.4f}\n")
+
+        if MOSTRAR_EQUIVOCACIONES:
+            # Mostrar imágenes mal clasificadas
+            misclassified_indexes = [i for i, (true, pred) in enumerate(zip(y_test, y_predict)) if true != pred]
+            print(f"Número de clasificaciones incorrectas: {len(misclassified_indexes)}")
+
+            for index in misclassified_indexes:
+                image = X_test_transformed[index].reshape(MIDA, MIDA)  # Ajusta a las dimensiones originales de la imagen si es necesario
+                true_label = "Cat" if y_test[index] == 0 else "Dog"
+                predicted_label = "Cat" if y_predict[index] == 0 else "Dog"
+
+                # Confianza de la predicción (porcentaje)
+                confidence = y_probs[index][y_predict[index]] * 100  # Obtiene la probabilidad de la clase predicha
+
+                plt.imshow(image)
+                plt.title(f"True: {true_label}, Predicted: {predicted_label} ({confidence:.2f}% confidence)")
+                plt.axis('off')
+                plt.show()
 
 
 if __name__ == "__main__":
