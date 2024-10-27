@@ -100,8 +100,7 @@ def obtenir_hog_individual(imatge, visualizar=False):
             imatge[:, :, i],
             orientations=8,
             pixels_per_cell=(8, 8),
-            cells_per_block=(8, 8),
-            transform_sqrt=True,
+            cells_per_block=(2, 2),
             visualize=visualizar,
             feature_vector=True
         )
