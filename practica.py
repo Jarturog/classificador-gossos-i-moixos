@@ -1,3 +1,4 @@
+#Autores: Marta González Juan y Juan Arturo Abaurrea Calafell
 import os
 import numpy as np
 import xml.etree.ElementTree as etree
@@ -107,7 +108,39 @@ def obtenir_hog_individual(imatge, visualizar=False):
         fd.append(fd_channel)
 
     return fd
+def svm_pixels(imatges, etiquetes):
+    # Características con píxeles (aplanando la imagen)
+    caracteristiques_pixeles = imatges.reshape(imatges.shape[3], -1)  # Convertir a (n_samples, n_features)
+    X_train_pix, X_test_pix, y_train_pix, y_test_pix = train_test_split(caracteristiques_pixeles, etiquetes,
+                                                                        test_size=0.2, random_state=RANDOM_STATE)
+    # Normalización de los datos
+    scaler_pix = MinMaxScaler()
+    X_train_pix = scaler_pix.fit_transform(X_train_pix)
+    X_test_pix = scaler_pix.transform(X_test_pix)
 
+
+
+    # Entrenar SVM lineal con píxeles
+    print("\nEntrenando SVM lineal con características de píxeles")
+    svm_pixeles = SVC(kernel="linear", random_state=RANDOM_STATE, class_weight="balanced")
+    svm_pixeles.fit(X_train_pix, y_train_pix)
+    y_pred_pix = svm_pixeles.predict(X_test_pix)
+
+
+    accuracy_pix = accuracy_score(y_test_pix, y_pred_pix)
+    precision_pix = precision_score(y_test_pix, y_pred_pix)
+    recall_pix = recall_score(y_test_pix, y_pred_pix)
+    f1_pix = f1_score(y_test_pix, y_pred_pix)
+    cm_pix = confusion_matrix(y_test_pix, y_pred_pix)
+    disp_pix = ConfusionMatrixDisplay(confusion_matrix=cm_pix, display_labels=["Cat", "Dog"])
+    disp_pix.plot(cmap='Blues')
+    plt.title("SVM Lineal con Píxeles")
+    plt.show()
+
+    print(f"Accuracy: {accuracy_pix:.4f}")
+    print(f"Precision: {precision_pix:.4f}")
+    print(f"Recall: {recall_pix:.4f}")
+    print(f"F1-Score: {f1_pix:.4f}\n")
 # Obtiene el HoG de un conjunto de imágenes
 def obtenir_hog(imatges, visualizar=False):
     caracteristiques = []
@@ -164,7 +197,7 @@ def main():
     n_dogs = np.sum(etiquetes)
     n_cats = n_imatges - n_dogs
     print(f"El dataset té {n_imatges} imatges, de les quals {n_dogs} són gossos i {n_cats} són moixos. Hi ha {(n_dogs / n_cats):.2f} gossos per cada moix.")
-
+    svm_pixels(imatges, etiquetes)
     caracteristiques = obtenir_hog(imatges)
 
     X_train, X_test, y_train, y_test = train_test_split(caracteristiques, etiquetes, test_size=0.2, random_state=RANDOM_STATE)
@@ -176,7 +209,7 @@ def main():
     kernels = {
         'lineal': ('linear', {}),
         'gaussiano': ('rbf', {'gamma': ['scale', 'auto', 0.1, 1, 10]}),
-        'polinómico': ('poly', {'degree': [2, 3, 4], 'coef0': [0.0, 0.1, 1.0]})
+        'polinómico': ('poly', {'degree': [2, 3, 4], 'coef0': [0.0, 0.1, 1.0], 'gamma': ['scale', 'auto', 0.1, 1, 10]})
     }
 
     for kernelNom, (kernel, parametros) in kernels.items():
